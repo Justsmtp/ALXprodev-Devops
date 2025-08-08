@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# Create directory for data if it doesn't exist
+# Create output directory
 mkdir -p pokemon_data
 
 # List of Pokémon
 pokemon_list=(bulbasaur ivysaur venusaur charmander charmeleon)
 
-# Function to fetch a single Pokémon's data
+# Function to fetch data
 fetch_pokemon() {
     local pokemon="$1"
     echo "Fetching data for $pokemon..."
@@ -21,15 +21,34 @@ fetch_pokemon() {
     fi
 }
 
-# Clear previous error log
+# Clear previous log
 > pokemon_data/fetch_errors.log
 
-# Fetch all Pokémon in parallel
+# Track PIDs
+pids=()
+
+# Start background jobs and record PIDs
 for pokemon in "${pokemon_list[@]}"; do
     fetch_pokemon "$pokemon" &
+    pids+=($!)
 done
 
-# Wait for all background jobs to finish
-wait
+# Timeout logic (optional safety net)
+TIMEOUT=15
+SECONDS=0
 
-echo "✅ All Pokémon data fetched in parallel."
+# Wait for all background jobs
+for pid in "${pids[@]}"; do
+    # Wait with timeout logic
+    while kill -0 "$pid" 2>/dev/null; do
+        if (( SECONDS > TIMEOUT )); then
+            echo "⏱ Timeout! Killing PID $pid"
+            kill "$pid"
+            echo "Process $pid was killed due to timeout." >> pokemon_data/fetch_errors.log
+            break
+        fi
+        sleep 1
+    done
+done
+
+echo "✅ All Pokémon data fetched (parallel with process control)."
